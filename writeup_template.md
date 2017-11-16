@@ -2,8 +2,6 @@
 
 ## Writeup Template
 
-### You can use this file as a template for your writeup if you want to submit it as a markdown file. But feel free to use some other method and submit a pdf if you prefer.
-
 ---
 
 **Finding Lane Lines on the Road**
@@ -21,27 +19,35 @@ The goals / steps of this project are the following:
 
 ### Reflection
 
-### 1. Describe your pipeline. As part of the description, explain how you modified the draw_lines() function.
+### 1. Pipeline.
 
-My pipeline consisted of 5 steps. First, I converted the images to grayscale, then I .... 
+I actually preferred to use a separate python script outside of the python notebook, and later I copied the script back
+in the notebook.
 
-In order to draw a single line on the left and right lanes, I modified the draw_lines() function by ...
+The pipeline looks as follows:
 
-If you'd like to include images to show how the pipeline works, here is how to include an image: 
+0. Video is loaded
+1. Grayscale
+2. Blur
+3. Find the edges with Canny
+4. Setup a mask around the bottom part of the image
+5. Find lines with HoughLines
+6. Doing an average for the q and m parameters of all lines in order to reduce to 2 lines. Such average is weighted on
+   the difference between the two y end points of the line to discard short and too horizontal lines. Also the final
+   value is averaged with the latest 5 frames to soften the movement.
+7. The lines are superimposed with the original image
+8. Video is saved
 
-![alt text][image1]
 
+### 2. Potential shortcomings
 
-### 2. Identify potential shortcomings with your current pipeline
+There could be an issue with turns as the lines would be way more horizontal and discarded by the weighted average
 
-
-One potential shortcoming would be what would happen when ... 
-
-Another shortcoming could be ...
+Another issue could arise from the car not being perfectly centered
 
 
 ### 3. Suggest possible improvements to your pipeline
 
-A possible improvement would be to ...
+The polygon for the mask should be dynamic and adapt based on the previous frame.
 
-Another potential improvement could be to ...
+I'm sure the performances can be improved.
