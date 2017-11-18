@@ -1,31 +1,17 @@
 import numpy as np
 import cv2
+import os
 
 
 def region_of_interest(img, vertices):
     # defining a blank mask to start with
     mask = np.zeros_like(img)
+
     # filling pixels inside the polygon defined by "vertices" with the fill color
     cv2.fillPoly(mask, vertices, 255)
+
     # returning the image only where mask pixels are nonzero
     return cv2.bitwise_and(img, mask)
-
-
-def draw_lines_simple(img, lines, color=[255, 0, 0], thickness=2):
-    for line in lines:
-        for x1, y1, x2, y2 in line:
-            cv2.line(img, (x1, y1), (x2, y2), color, thickness)
-
-
-def visualise(im1, im2, im3, im4):
-    v1 = np.concatenate((im1, im2), axis=1)
-    v2 = np.concatenate((im3, im4), axis=1)
-    vis = np.concatenate((v1, v2), axis=0)
-    small = cv2.resize(vis, (0, 0), fx=0.5, fy=0.5)
-    cv2.imshow('frame', small)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        cap.release()
-        cv2.destroyAllWindows()
 
 
 def find_x(y, q, m):
@@ -46,6 +32,7 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=5):
     global LeftMList
     global RightQList
     global RightMList
+
     # Find the slopes and a sample point
     left_m_list = []
     right_m_list = []
@@ -67,14 +54,17 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=5):
                     right_m_list.append(slope)
                     right_q_list.append(y1 - (slope * x1))
                     right_weights.append(y2 - y1)
+
     # Find the average left and right slope and quote
     left_m = np.average(left_m_list, weights=left_weights)
     left_q = np.average(left_q_list, weights=left_weights)
     right_m = np.average(right_m_list, weights=right_weights)
     right_q = np.average(right_q_list, weights=right_weights)
+
     # Calculate the current turn
     cur_pos = Turn % MaxMeanValues
     Turn = Turn + 1
+
     # Calculate a global average for the last (globalAverage) values
     if Turn <= MaxMeanValues:
         LeftQList.append(left_q)
@@ -90,6 +80,7 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=5):
     left_m = np.mean(LeftMList)
     right_q = np.mean(RightQList)
     right_m = np.mean(RightMList)
+
     # Extend the line to the top and to the bottom
     bottom = img.shape[0]
     top = 320
@@ -103,22 +94,33 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=5):
     cv2.line(img, (x_bottom_right, bottom), (x_top_right, top), color, thickness)
 
 
-cap = cv2.VideoCapture('test_videos/solidYellowLeft.mp4')
+cap = cv2.VideoCapture('test_videos/solidWhiteRight.mp4')
+fps = int(cap.get(cv2.CAP_PROP_FPS))
+w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+if not os.path.exists('test_videos_output'):
+    os.makedirs('test_videos_output')
+out = cv2.VideoWriter('test_videos_output/solidWhiteRight.mp4', fourcc, fps, (w, h), True)
 
 while cap.isOpened():
     ret, frame = cap.read()
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    blur_gray = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blur_gray, 50, 150)
-    imshape = frame.shape
-    vertices = np.array([[(0, imshape[0]), (430, 340), (540, 340), (imshape[1], imshape[0])]], dtype=np.int32)
-    cv2.polylines(gray, vertices, True, (255, 255, 255), 5)
-    masked_edges = region_of_interest(edges, vertices)
-    lines = cv2.HoughLinesP(masked_edges, 0.5, np.pi / 180, 10, np.array([]), minLineLength=30, maxLineGap=30)
-    line_img = np.zeros((gray.shape[0], gray.shape[1]), dtype=np.uint8)
-    draw_lines_simple(line_img, lines)
-    result = np.zeros((gray.shape[0], gray.shape[1]), dtype=np.uint8)
-    draw_lines(result, lines)
-    visualise(gray, edges, line_img, result)
+
+    if ret:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        blur_gray = cv2.GaussianBlur(gray, (5, 5), 0)
+        edges = cv2.Canny(blur_gray, 50, 150)
+        imshape = frame.shape
+        vertices = np.array([[(0, imshape[0]), (430, 340), (540, 340), (imshape[1], imshape[0])]], dtype=np.int32)
+        cv2.polylines(gray, vertices, True, (255, 255, 255), 5)
+        masked_edges = region_of_interest(edges, vertices)
+        lines = cv2.HoughLinesP(masked_edges, 0.5, np.pi / 180, 10, np.array([]), minLineLength=30, maxLineGap=30)
+        line_img = np.zeros((gray.shape[0], gray.shape[1], 3), dtype=np.uint8)
+        draw_lines(line_img, lines)
+        result = cv2.addWeighted(frame, 0.8, line_img, 1.0, 0.0)
+        out.write(result)
+    else:
+        break
 
 cap.release()
+out.release()
